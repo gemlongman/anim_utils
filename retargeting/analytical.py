@@ -228,7 +228,7 @@ def create_correction_map(target_skeleton,target_to_src_joint_map, src_cos_map, 
     correction_map = dict()
     for target_name in target_to_src_joint_map:
         src_name = target_to_src_joint_map[target_name]
-        if src_name in src_cos_map and target_name is not None:
+        if src_name in src_cos_map and target_name is not None and target_name in target_cos_map:
             src_zero_vector_y = src_cos_map[src_name]["y"]
             target_zero_vector_y = target_cos_map[target_name]["y"]
             src_zero_vector_x = src_cos_map[src_name]["x"]
@@ -244,6 +244,7 @@ def create_correction_map(target_skeleton,target_to_src_joint_map, src_cos_map, 
                 q = normalize(q)
                 correction_map[target_name] = q
     return correction_map
+
 
 class Retargeting(object):
     def __init__(self, src_skeleton, target_skeleton, target_to_src_joint_map, scale_factor=1.0, additional_rotation_map=None, constant_offset=None, place_on_ground=False, force_root_translation=False, ground_height=0):
@@ -264,7 +265,7 @@ class Retargeting(object):
             else:
                 self.src_child_map[src_name] = None
         self.target_cos_map = create_local_cos_map_from_skeleton_axes_with_map(self.target_skeleton)
-        self.src_cos_map = create_local_cos_map_from_skeleton_axes_with_map(self.src_skeleton, flip=1.0, project=True)
+        self.src_cos_map = create_local_cos_map_from_skeleton_axes_with_map(self.src_skeleton)
 
         if "cos_map" in target_skeleton.skeleton_model:
             self.target_cos_map.update(target_skeleton.skeleton_model["cos_map"])
@@ -289,6 +290,15 @@ class Retargeting(object):
                 target_to_src_joint_map[target_root] = self.src_skeleton.root
         else:
             self.apply_root_fix = False
+        if scale_factor <= 0:
+            self.auto_scale_factor()
+
+    def auto_scale_factor(self):
+        """ estimate scale from leg length by gemlongman """
+        target_hip_h = self.target_skeleton.get_body_hip2foot_height()
+        src_hip_h = self.src_skeleton.get_body_hip2foot_height()
+        self.scale_factor = target_hip_h / src_hip_h
+        print("debug scale_factor :" + str(target_hip_h)+ " / " +str(src_hip_h) + " = " +str(self.scale_factor))
 
     def rotate_bone(self, src_name, target_name, src_frame, target_frame, guess):
         q = guess
